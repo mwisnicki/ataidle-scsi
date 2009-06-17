@@ -1,5 +1,6 @@
 /*-
 * Copyright 2004-2008 Bruce Cran <bruce@cran.org.uk>. All rights reserved.
+* Copyright 2009 Marcin Wisnicki <mwisnicki@gmail.com>. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions
@@ -41,6 +42,9 @@
 #else
 	#include "../linux/ataidle.h"
 #endif
+
+#define ASSERT_SIZEOF_TYPE(t, s, n) \
+    typedef char assert_sizeof_##t##_##s[(sizeof(t s) == (n)) ? 1 : -1]
 
 struct ata_ident
 {
@@ -115,6 +119,113 @@ struct ata_ident
 
 #define ATA_SMART_SUPPORTED	0x0001
 #define ATA_SMART_ENABLED	0x0001
+
+/*
+ * Relevant documents:
+ *
+ * SCSI / ATA Translation (SAT):
+ * http://www.t11.org/t10/drafts/sat/sat-r09.pdf
+ *
+ * SCSI / ATA Translation - 2 (SAT-2):
+ * http://www.t11.org/t10/drafts/sat2/sat2r06.pdf
+ *
+ * Old drafts:
+ *
+ * ATA Command Pass-Through:
+ * http://www.t10.org/ftp/t10/document.04/04-262r8.pdf
+ *
+ * SAT- ATA PASS-THROUGH additional sense code and other clarifications:
+ * http://www.t10.org/ftp/t10/document.06/06-291r2.pdf
+ *
+ * SAT-2 ATA PASS-THROUGH sense data format
+ * http://www.t10.org/ftp/t10/document.08/08-344r2.pdf
+ */
+enum sat_cdb_opcode {
+	SAT_ATA_PASSTHROUGH_12	= 0xA1,
+	SAT_ATA_PASSTHROUGH_16	= 0x85
+};
+
+#pragma pack(1)
+struct sat_cdb_header {
+	uint32_t	opcode		: 8; /* A1h for short, 85h for rest */
+	uint32_t	mult_count	: 3;
+	uint32_t	protocol	: 4;
+	uint32_t	extend		: 1; /* 1 for extended, 0 for rest */
+	uint32_t	offline		: 2;
+	uint32_t	ck_cond		: 1;
+	uint32_t	reserved0	: 1;
+	uint32_t	t_dir		: 1;
+	uint32_t	byte_block	: 1;
+	uint32_t	t_length	: 2;
+};
+#pragma pack()
+ASSERT_SIZEOF_TYPE(struct, sat_cdb_header, 3);
+
+#pragma pack(1)
+struct sat_cdb_short {
+	struct sat_cdb_header cdb_h; /* opcode=A1h, extend=0 */
+	uint32_t	features	: 8;
+	uint32_t	sector_count	: 8;
+	uint32_t	lba_low		: 8;
+	uint32_t	lba_mid		: 8;
+	uint32_t	lba_high	: 8;
+	uint32_t	device		: 8;
+	uint32_t	command		: 8;
+	uint32_t	reserved1	: 8;
+	uint32_t	control		: 8;
+};
+#pragma pack()
+ASSERT_SIZEOF_TYPE(struct, sat_cdb_short, 12);
+
+#pragma pack(1)
+struct sat_cdb_long {
+	struct sat_cdb_header cdb_h; /* opcode=85h, extend=0 */
+	union {
+		struct {
+			uint32_t	features1	: 8;
+			uint32_t	features0	: 8;
+			uint32_t	sector_count1	: 8;
+			uint32_t	sector_count0	: 8;
+			uint32_t	lba_low1	: 8;
+			uint32_t	lba_low0	: 8;
+			uint32_t	lba_mid1	: 8;
+			uint32_t	lba_mid0	: 8;
+			uint32_t	lba_high1	: 8;
+			uint32_t	lba_high0	: 8;
+		} std;
+		struct {
+			uint32_t	reserved0	: 8;
+			uint32_t	features	: 8;
+			uint32_t	reserved1	: 8;
+			uint32_t	sector_count	: 8;
+			uint32_t	reserved2	: 8;
+			uint32_t	lba_low		: 8;
+			uint32_t	reserved3	: 8;
+			uint32_t	lba_mid		: 8;
+			uint32_t	reserved4	: 8;
+			uint32_t	lba_high	: 8;
+		} lba;
+		struct {
+			uint32_t	features	: 16;
+			uint32_t	sector_count	: 16;
+			uint32_t	lba_low		: 16;
+			uint32_t	lba_mid		: 16;
+			uint32_t	lba_high	: 16;
+		} lba48;
+	} u;
+	uint32_t	device		: 8;
+	uint32_t	command		: 8;
+	uint32_t	control		: 8;
+};
+#pragma pack()
+ASSERT_SIZEOF_TYPE(struct, sat_cdb_long, 16);
+
+union sat_cdb {
+	struct sat_cdb_header	sc_h;
+	struct sat_cdb_short	scshort;
+	struct sat_cdb_long	sclong;
+};
+ASSERT_SIZEOF_TYPE(union, sat_cdb, 16);
 
 enum ata_access_mode {
 	ACCESS_MODE_ATA = 0,

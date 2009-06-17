@@ -38,6 +38,7 @@
 #include <errno.h>
 
 #include <camlib.h>
+#include <cam/scsi/scsi_message.h>
 
 #include <sys/types.h>
 #include <sys/ata.h>
@@ -143,13 +144,67 @@ int ata_is_opened(ATA *ata)
 	};
 }
 
+/* TODO move generic ATA <-> SAT CDB conversion code to mi */
+
+void sat_cdb_set_command(union sat_cdb* cdb, enum ata_command atacmd)
+{
+	switch (cdb->sc_h.opcode) {
+	case SAT_ATA_PASSTHROUGH_12:
+		cdb->scshort.command = atacmd;
+		break;
+	case SAT_ATA_PASSTHROUGH_16:
+		cdb->sclong.command = atacmd;
+		break;
+	}
+}
+
 static
 int translate_ata_to_csio(struct ccb_scsiio *csio, ATA *ata, enum ata_command atacmd, int drivercmd)
 {
 	int rc = 0;
+	int cmdlen = 16;
+	union sat_cdb* cdb = (union sat_cdb*) csio->cdb_io.cdb_bytes;
+
+	bzero(&(&csio->ccb_h)[1], sizeof(struct ccb_scsiio) - sizeof(struct ccb_hdr));
+
+	/* cam_fill_csio() sucks */
+
+	csio->ccb_h.func_code = XPT_SCSI_IO;
+	csio->ccb_h.flags = 0;
+	csio->ccb_h.retry_count = 1;
+	csio->ccb_h.cbfcnp = NULL;
+	csio->ccb_h.timeout = ata->atacmd.ata_cmd.timeout * 1000; /* ATA_CMD_TIMEOUT * 1000; */
+	csio->data_ptr = NULL;
+	csio->dxfer_len = 0;
+	csio->sense_len = 32;
+	csio->cdb_len = cmdlen;
+	csio->tag_action = MSG_SIMPLE_Q_TAG;
+
+	cdb->sc_h.opcode = SAT_ATA_PASSTHROUGH_16;
+
+	switch (ata->atacmd.ata_cmd.flags) {
+	case ATA_CMD_READ:
+		csio->ccb_h.flags = CAM_DIR_IN;
+		csio->data_ptr = (u_int8_t*) ata->atacmd.ata_cmd.data;
+		csio->dxfer_len = ata->atacmd.ata_cmd.count;
+		cdb->sc_h.protocol = ATA_PROT_PIO_DATA_IN;
+		cdb->sc_h.extend = 1;
+		break;
+#if 0
+	case ATA_CMD_CONTROL:
+		csio->ccb_h.flags = CAM_DIR_NONE;
+		break;
+#endif
+	default:
+		err(EX_SOFTWARE, "unknown ata command flag %d", ata->atacmd.ata_cmd.flags);
+		return -1; /* UNREACHABLE */
+	}
+
+	sat_cdb_set_command(cdb, atacmd);
 
 	switch (atacmd) {
 	case ATA__IDENTIFY:
+		break;
 	case ATA__ATAPI_IDENTIFY:
 	case ATA__SETFEATURES:
 	case ATA_IDLE:
@@ -202,8 +257,6 @@ int ata_cmd(ATA *ata, enum ata_command atacmd, int drivercmd)
 			rc = cam_send_ccb(ata->devhandle.camdev, ccb);
 			cam_freeccb(ccb);
 			if (rc) return rc;
-
-			/* TODO translate response */
 		}
 		break;
 	}
