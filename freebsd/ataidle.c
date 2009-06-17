@@ -26,12 +26,15 @@
  *
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <sysexits.h>
 #include <unistd.h>
+#include <err.h>
 #include <errno.h>
 
 #include <sys/types.h>
@@ -43,6 +46,76 @@
 #include "../mi/atadefs.h"
 #include "../mi/util.h"
 
+#ifndef TRUE
+#define TRUE 1
+#endif
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+/* open ata device */
+int ata_open(ATA **ataptr, const char *device) {
+	int rc;
+	assert(ataptr != NULL);
+	
+	*ataptr = malloc(sizeof(ATA));
+	{
+		ATA *ata = *ataptr;
+		if (ata == NULL)
+			err(EX_SOFTWARE, NULL);
+		ata->devhandle.fd = -1;
+
+		/* TODO detect mode */
+		ata->access_mode = ACCESS_MODE_ATA;
+
+		switch (ata->access_mode) {
+		case ACCESS_MODE_ATA:
+			rc = open( device, O_RDONLY );
+			if (rc > 0)
+				ata->devhandle.fd = rc;
+			else
+				goto fail;
+			break;
+		}
+	}
+	return rc;
+fail:
+	free(*ataptr);
+	return rc;
+}
+
+/* close ata device and free memory, set pointer to NULL */
+void ata_close(ATA **ataptr) {
+	if (ataptr != NULL) {
+		ATA *ata = *ataptr;
+		if (ata != NULL) {
+			switch (ata->access_mode) {
+			case ACCESS_MODE_ATA:
+				if (ata->devhandle.fd > 0)
+					close(ata->devhandle.fd);
+				ata->devhandle.fd = -1;
+				break;
+			}
+			free(ata);
+		}
+		*ataptr = NULL;
+	}
+}
+
+/* check if ata points to opened device */
+int ata_is_opened(ATA *ata)
+{
+	if (ata == NULL)
+		return FALSE;
+	switch (ata->access_mode) {
+	case ACCESS_MODE_ATA:
+		return ata->devhandle.fd > 0;
+	default:
+		err(EX_SOFTWARE, "unknown access mode %d", ata->access_mode);
+		return FALSE; /* UNREACHABLE */
+	};
+}
+
 /* send a command to the drive */
 int ata_cmd(ATA *ata, int atacmd, int drivercmd)
 {
@@ -51,14 +124,17 @@ int ata_cmd(ATA *ata, int atacmd, int drivercmd)
 	if (atacmd > 0)
 		ata->atacmd.ata_cmd.u.ata.command = atacmd;
 
-
-	if (drivercmd == IOCATAGMAXCHANNEL) {
-		int maxchan = 0;
-		rc = ioctl( ata->fd, drivercmd, &maxchan );
-		ata->atacmd.ata_cmd.data = malloc(sizeof(int));
-		*ata->atacmd.ata_cmd.data = maxchan;
-	} else {
-		rc = ioctl( ata->fd, IOCATAREQUEST, &(ata->atacmd.ata_cmd) );
+	switch (ata->access_mode) {
+	case ACCESS_MODE_ATA:
+		if (drivercmd == IOCATAGMAXCHANNEL) {
+			int maxchan = 0;
+			rc = ioctl( ata->devhandle.fd, drivercmd, &maxchan );
+			ata->atacmd.ata_cmd.data = malloc(sizeof(int));
+			*ata->atacmd.ata_cmd.data = maxchan;
+		} else {
+			rc = ioctl( ata->devhandle.fd, IOCATAREQUEST, &(ata->atacmd.ata_cmd) );
+		}
+		break;
 	}
 
 	return rc;

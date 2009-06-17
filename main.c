@@ -60,16 +60,9 @@ int main( int argc, char ** argv )
 	struct ata_ident ident;
 	const char * const optstr = "hA:S:sI:iP:o";
 
-	ata = malloc(sizeof(ATA));
-
-	if (ata == NULL)
-		err(EX_SOFTWARE, NULL);
-
 	/* need more than just the executable name */
 	if( argc == 1 )
 		usage();
-
-	ata->fd = -1;
 
 	/* now we've done all the checking of parameters etc.,
 	 * let's see what the user wants us to do.
@@ -84,13 +77,11 @@ int main( int argc, char ** argv )
 			err(EX_OSFILE, "%s", argv[argc-1]);
 
 		if (S_ISBLK(sb.st_mode) || S_ISCHR(sb.st_mode))
-			rc = open( argv[argc-1], O_RDONLY );
+			rc = ata_open( &ata, argv[argc-1] );
 		else
 			errx(EX_OSFILE, "%s isn't a device node", argv[argc-1]);
 
-		if (rc > 0)
-			ata->fd = rc;
-		else
+		if (rc <= 0)
 			err(EX_IOERR, "error opening %s", argv[argc-1]);
 
 		if (argc == 2)
@@ -100,7 +91,7 @@ int main( int argc, char ** argv )
 	optind = 1;
 	opterr = 1;
 
-	if (ata->fd != -1) {
+	if (ata_is_opened( ata )) {
 		rc = ata_ident( ata, &ident );
 		if (rc)
 			errx(EX_SOFTWARE, "an error occurred identifying the device %s\n", argv[argc-1]);
@@ -187,13 +178,7 @@ int main( int argc, char ** argv )
 		}
 	}
 
-	if (ata != NULL)
-	{
-		if (ata->fd > 0)
-			close(ata->fd);
-
-		free(ata);
-	}
+	ata_close( &ata );
 	
 	return (rc);
 }

@@ -38,4 +38,9 @@ struct ata_cmd
 	struct ata_ioc_request ata_cmd;
 };
 
+struct ata_dev_handle
+{
+	int			fd;
+};
+
 #endif /* ATAIDLE_H */

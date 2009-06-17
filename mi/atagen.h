@@ -115,17 +115,23 @@ struct ata_ident
 #define ATA_SMART_SUPPORTED	0x0001
 #define ATA_SMART_ENABLED	0x0001
 
+enum ata_access_mode {
+	ACCESS_MODE_ATA = 0
+};
+
 typedef struct 
 {
-	int fd;
+	struct ata_dev_handle devhandle;
+	enum ata_access_mode access_mode;
 	uint32_t chan;
 	uint32_t dev;
 	uint32_t cmd;
 	struct ata_cmd atacmd;
 } ATA;
 
-int	ata_open( ATA *ata, const char *device );
-void	ata_close( ATA *ata );
+int	ata_open( ATA **ata, const char *device );
+void	ata_close( ATA **ata );
+int	ata_is_opened( ATA *ata );
 int	ata_setidletimer( ATA *ata, uint32_t idle_mins );
 int	ata_sleep( ATA *ata );
 int	ata_setstandbytimer( ATA *ata, uint32_t standby_mins );
