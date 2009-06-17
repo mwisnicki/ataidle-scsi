@@ -37,6 +37,8 @@
 #include <err.h>
 #include <errno.h>
 
+#include <camlib.h>
+
 #include <sys/types.h>
 #include <sys/ata.h>
 #include <sys/ioctl.h>
@@ -45,6 +47,8 @@
 #include "../mi/atagen.h"
 #include "../mi/atadefs.h"
 #include "../mi/util.h"
+
+static const char * const scsi_prefix_da = "/dev/da";
 
 #ifndef TRUE
 #define TRUE 1
@@ -65,16 +69,32 @@ int ata_open(ATA **ataptr, const char *device) {
 			err(EX_SOFTWARE, NULL);
 		ata->devhandle.fd = -1;
 
-		/* TODO detect mode */
+		/* TODO better detection of SCSI/SAT */
 		ata->access_mode = ACCESS_MODE_ATA;
+		if (strncmp(device, scsi_prefix_da, strlen(scsi_prefix_da)) == 0)
+			ata->access_mode = ACCESS_MODE_SAT;
 
 		switch (ata->access_mode) {
 		case ACCESS_MODE_ATA:
 			rc = open( device, O_RDONLY );
 			if (rc > 0)
 				ata->devhandle.fd = rc;
-			else
+			break;
+		case ACCESS_MODE_SAT:
+			rc = cam_get_device( device, ata->devhandle.camdevname,
+					     DEV_IDLEN,
+					     &(ata->devhandle.camunit) );
+			if (rc != 0)
 				goto fail;
+			ata->devhandle.camdev = cam_open_spec_device(
+				ata->devhandle.camdevname,
+				ata->devhandle.camunit,	O_RDONLY, NULL );
+			if (ata->devhandle.camdev == NULL) {
+				rc = -1;
+				warnx("%s", cam_errbuf);
+				goto fail;
+			}
+			
 			break;
 		}
 	}
@@ -95,6 +115,11 @@ void ata_close(ATA **ataptr) {
 					close(ata->devhandle.fd);
 				ata->devhandle.fd = -1;
 				break;
+			case ACCESS_MODE_SAT:
+				if (ata->devhandle.camdev != NULL)
+					cam_close_device(ata->devhandle.camdev);
+				ata->devhandle.camdev = NULL;
+				break;
 			}
 			free(ata);
 		}
@@ -110,14 +135,34 @@ int ata_is_opened(ATA *ata)
 	switch (ata->access_mode) {
 	case ACCESS_MODE_ATA:
 		return ata->devhandle.fd > 0;
+	case ACCESS_MODE_SAT:
+		return ata->devhandle.camdev != NULL;
 	default:
 		err(EX_SOFTWARE, "unknown access mode %d", ata->access_mode);
 		return FALSE; /* UNREACHABLE */
 	};
 }
 
+static
+int translate_ata_to_csio(struct ccb_scsiio *csio, ATA *ata, enum ata_command atacmd, int drivercmd)
+{
+	int rc = 0;
+
+	switch (atacmd) {
+	case ATA__IDENTIFY:
+	case ATA__ATAPI_IDENTIFY:
+	case ATA__SETFEATURES:
+	case ATA_IDLE:
+	case ATA_STANDBY:
+		err(EX_SOFTWARE, "unknown ata command %x", atacmd);
+		return -1; /* UNREACHABLE */
+	}
+
+	return rc;
+}
+
 /* send a command to the drive */
-int ata_cmd(ATA *ata, int atacmd, int drivercmd)
+int ata_cmd(ATA *ata, enum ata_command atacmd, int drivercmd)
 {
 	int rc = 0;
 
@@ -133,6 +178,32 @@ int ata_cmd(ATA *ata, int atacmd, int drivercmd)
 			*ata->atacmd.ata_cmd.data = maxchan;
 		} else {
 			rc = ioctl( ata->devhandle.fd, IOCATAREQUEST, &(ata->atacmd.ata_cmd) );
+		}
+		break;
+	case ACCESS_MODE_SAT:
+		if (drivercmd == IOCATAGMAXCHANNEL) {
+			/* XXX hardcoded to 1 channel */
+			rc = 0;
+			ata->atacmd.ata_cmd.data = malloc(sizeof(int)); /* memory leak (above too) */
+			*ata->atacmd.ata_cmd.data = 1;
+		} else {
+			union ccb * ccb;
+			struct ccb_scsiio * csio;
+
+			ccb = cam_getccb(ata->devhandle.camdev);
+			if (!ccb)
+				return -1;
+
+			csio = &ccb->csio;
+
+			rc = translate_ata_to_csio(csio, ata, atacmd, drivercmd);
+			if (rc) return rc;
+
+			rc = cam_send_ccb(ata->devhandle.camdev, ccb);
+			cam_freeccb(ccb);
+			if (rc) return rc;
+
+			/* TODO translate response */
 		}
 		break;
 	}
@@ -154,7 +225,7 @@ int ata_setataparams( ATA *ata, int seccount, int count)
 	return 0;
 }
 
-void ata_setfeature_param( ATA *ata, int feature_val)
+void ata_setfeature_param( ATA *ata, enum ata_feature feature_val)
 {
 	ata->atacmd.ata_cmd.u.ata.feature = feature_val;
 }

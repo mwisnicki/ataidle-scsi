@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "atadefs.h"
 #ifdef __FreeBSD__
 	#include <osreldate.h>
 	#include <sys/ata.h>
@@ -116,7 +117,8 @@ struct ata_ident
 #define ATA_SMART_ENABLED	0x0001
 
 enum ata_access_mode {
-	ACCESS_MODE_ATA = 0
+	ACCESS_MODE_ATA = 0,
+	ACCESS_MODE_SAT = 1
 };
 
 typedef struct 
@@ -139,11 +141,11 @@ int	ata_setacoustic( ATA *ata, uint32_t acoustic_val);
 int	ata_setapm( ATA *ata, uint32_t apm_val);
 void	ata_listdevices( ATA *ata );
 int	ata_getmaxchan( ATA *ata, uint32_t *maxchan );
-int	ata_cmd( ATA *ata, int atacmd, int drivercmd );
+int	ata_cmd( ATA *ata, enum ata_command atacmd, int drivercmd );
 bool	ata_devpresent( ATA *ata );
 int	ata_ident( ATA *ata, struct ata_ident * identity);
 void	ata_showdeviceinfo( ATA *ata );
-void	ata_setfeature_param( ATA *ata, int feature_val);
+void	ata_setfeature_param( ATA *ata, enum ata_feature feature_val);
 int	ata_setataparams( ATA *ata, int seccount, int count);
 void	ata_setdataout_params( ATA *ata, char ** databuf, int nbytes);
 

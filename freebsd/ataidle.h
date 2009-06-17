@@ -30,6 +30,7 @@
 #ifndef ATAIDLE_H
 #define ATAIDLE_H
 
+#include <camlib.h>
 #include <sys/types.h>
 #include <sys/ata.h>
 
@@ -41,6 +42,9 @@ struct ata_cmd
 struct ata_dev_handle
 {
 	int			fd;
+	char		camdevname[DEV_IDLEN];
+	int			camunit;
+	struct cam_device *	camdev;
 };
 
 #endif /* ATAIDLE_H */

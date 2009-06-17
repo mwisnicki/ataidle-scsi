@@ -2,7 +2,8 @@ PREFIX = /usr/local
 CC ?= cc
 LD ?= ld
 CFLAGS += -std=c99 -Wall -ansi -pedantic
-LIBS = -lm
+LIBS = -lm $(LIBS.$(OS))
+LIBS.freebsd = -lcam
 SOURCES = ataidle.c
 MAN = ataidle.8
 PROG = ataidle
