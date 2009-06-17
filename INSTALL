@@ -1,0 +1,7 @@
+To install ATAidle, run 'make' to build it, followed by 'make install' to
+install the binary into /usr/local/sbin and install the man page into
+/usr/local/man/man8.   If you later want to remove ataidle, simply run
+'make uninstall'.
+
+Alternatively, the binary can be copied and run from a more convenient 
+location.

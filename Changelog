@@ -1,0 +1,97 @@
+Thu Jan 1 01:25 2004	brucec
+	*	released 0.01
+
+Fri Jan 2 04:20 2004	brucec
+	*	released 0.02
+		
+		remove automake/autoconf junk,
+		tidy code.
+
+Sun Jan 11 12:46 2004	brucec
+	*	released 20040111
+		added power management and acoustic
+		level features, and tidied more code
+
+Sun Jan 11 19:50 2004	brucec
+	*	released 0.3
+		added support for listing installed
+		devices, and getting information about
+		a device.
+
+Tue Jan 27 23:05 2004	brucec
+	*	added support for immediately
+		transitioning to idle and standby 
+		power saving modes
+
+Thu Jan 29 20:30 2004	brucec
+	*	More information is now
+		reported when no parameters
+		are given.
+
+Tue Feb 03 23:45 2004	brucec
+	*	Added drive reinitialisation
+		support following AAM or APM settings.
+		This fixes the case where settings are
+		not activated.   Also added documentation
+		about AAM and APM, and now scale AAM from
+		1-127, instead of 127-254
+
+Sat Feb 07 21:48 2004	brucec
+	*	Removed drive reinitialization, turns out
+		it isn't needed - atacontrol doesn't see new
+		settings, but 'ataidle <chan> <dev>' does, and
+		new settings are audibly active.  Add '0'
+		value for APM and AAM which disables drive 
+		management for said feature.
+
+Sun Feb 08 21:32 2004	brucec
+	*	Ported to Linux, cleaned up lots of code,
+		split into OS-dependant/independant code,
+		added my own structures to use in preference
+		to OS-supplied ones.
+
+Tue June 29 23:40 2004  brucec
+	*	Fixed a uninitialized variable which showed up
+		due to a problem with the FreeBSD ATA driver
+		returning an error code for ATA_GETMAXCHAN.
+		At the same time, add return code checking for 
+		all malloc calls, and handle appropriately
+
+Sun July 18 19:48 2004  brucec
+	*	Fixed command-line handling to make it work
+		on amd64 platform.  Also fixed typo in freebsd
+		code.
+
+Mon Aug 09 11:00 2004   brucec
+	*	Miscellaneous bug-fixes to prevent crashes
+		under unusual situations
+
+Tue Jan 11 18:34 2005   brucec
+	*	Merged the types fix from FreeBSD ports fixes.
+		Added LSB->MSB conversions so it now works
+		properly on SPARC64 systems too
+		
+Fri Oct 15 00:57 2005   brucec
+	*	Added code to support FreeBSD 6 and newer,
+		by renaming freebsd directory to freebsd5
+		and adding freebsd 6+ code in freebsd 
+		directory.
+
+Thu May 17 21:02 2007  brucec
+	*	Added support to put drive into sleep mode
+		Build system now uses a single Makefile
+
+Wed May 30 23:00 2007  brucec
+	*	Removed support for FreeBSD 5
+		Changed parameters so device is specified by
+		entry in /dev
+
+Fri Jan 04 23:12 2008 brucec
+	*	Removed device listing option and notes about
+		meaning of ATA, AAM and SMART. 
+		Completed code changes to support specifying 
+		device entry in /dev.
+
+Sat Aug 30 02:55 2008 brucec
+	*	Fixed endian issue. ataidle now runs correctly
+		on FreeBSD/powerpc.

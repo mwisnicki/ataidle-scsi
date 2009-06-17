@@ -1,0 +1,103 @@
+.\" man page for ATAidle
+.\" Contact bruce@cran.org.uk to correct errors or omissions
+.TH man 8 "August 2008" "2.4" "ATAidle"
+.SH NAME
+ataidle \- a utility to spin down ATA drives
+.SH SYNOPSIS
+.\" Syntax goes here. 
+.B ataidle [-h] [-i] [-s] [-o] [-I 
+.I idle_mins
+.B ] [-S
+.I standby_mins
+.B ] [-A
+.I acoustic_level
+.B ] [-P
+.I apm_level
+.B ]
+.I device
+.SH DESCRIPTION
+.B ATAidle
+sets various power management features on hard drives, including
+timeouts to switch to idle and standby power saving modes,
+and setting the APM (power) and AAM (acoustic) levels.
+If only a device is specified, without options, information
+about the selected device will be shown.
+
+.SH OPTIONS
+.IP -h
+show usage information
+.IP -i
+put the drive into idle mode
+.IP -s
+put the drive into standby mode
+.IP -o
+put the drive into sleep mode
+.IP -I 
+spins down the drive into
+.B idle
+mode after idle_mins minutes of inactivity
+.IP -S
+spins down the drive into
+.B standby
+mode after standby_mins minutes of inactivity.
+However, using this mode usually immediately spins
+down the drive.
+.IP -A
+set the
+.B acoustic
+level of the hard drive.  This allows you to reduce the
+acoustic output of the drive at the expense of performance.
+.IP -P
+set the
+.B Advanced Power Management
+level of the drive.  This allows you to lower the power
+consumption of the drive, at the expense of performance.
+A very low
+.B apm_level
+will make the drive go into standby mode to save power.
+
+.SH NOTES
+Notes on Auto Acoustic Management (AAM) and APM support
+
+These features are experimental, and should only be used
+after verifying that the drive works when sent those commands.
+
+AAM and APM settings are vendor-specific, and not all intermediate values
+may be valid.  If you set an invalid APM value, you will be notified that
+it failed - when setting an AAM value you should check the output of
+ 'ataidle <device>' to see if it has been updated.  If it hasn't, the
+value isn't supported and you should try a higher or lower setting.
+
+.IP
+
+Meaning of AAM values:
+
+.IP 0 
+Acoustic management disabled
+.IP 1 
+Minimum acoustic output
+.IP 2-126 
+Intermediate acoustic output levels
+.IP 127             
+Maximum performance, maximum acoustic output
+
+Meaning of APM values:
+
+.IP 0
+APM disabled
+.IP 1               
+Minimum power usage with Standby (spindown)
+.IP 2-127   
+Intermediate power usage with Standby
+.IP 128             
+Minimum power usage without Standby (no spindown)
+.IP 129-253 
+Intermediate power usage without Standby
+.IP 254             
+Maximum performance, maximum power usage
+.SH AUTHOR
+Bruce Cran <bruce@cran.org.uk>
+.SH "SEE ALSO"
+.BR atacontrol (8),
+.BR hdparm (8),
+.BR smartctl (8)
